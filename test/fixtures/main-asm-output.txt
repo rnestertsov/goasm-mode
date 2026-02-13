@@ -1,0 +1,71 @@
+# goasm-fixture
+main.Add STEXT size=16 args=0x10 locals=0x0 funcid=0x0 align=0x0 leaf
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:3)	TEXT	main.Add(SB), LEAF|NOFRAME|ABIInternal, $0-16
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:3)	FUNCDATA	$0, gclocals·FzY36IO2mY0y4dZ1+Izd/w==(SB)
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:3)	FUNCDATA	$1, gclocals·FzY36IO2mY0y4dZ1+Izd/w==(SB)
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:3)	FUNCDATA	$5, main.Add.arginfo1(SB)
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:3)	FUNCDATA	$6, main.Add.argliveinfo(SB)
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:3)	PCDATA	$3, $1
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:4)	ADD	R1, R0, R0
+	0x0004 00004 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:4)	RET	(R30)
+	0x0000 00 00 01 8b c0 03 5f d6 00 00 00 00 00 00 00 00  ......_.........
+main.Multiply STEXT size=32 args=0x10 locals=0x0 funcid=0x0 align=0x0 leaf
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:7)	TEXT	main.Multiply(SB), LEAF|NOFRAME|ABIInternal, $0-16
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:7)	FUNCDATA	$0, gclocals·FzY36IO2mY0y4dZ1+Izd/w==(SB)
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:7)	FUNCDATA	$1, gclocals·FzY36IO2mY0y4dZ1+Izd/w==(SB)
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:7)	FUNCDATA	$5, main.Multiply.arginfo1(SB)
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:7)	FUNCDATA	$6, main.Multiply.argliveinfo(SB)
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:7)	PCDATA	$3, $1
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:9)	MOVD	ZR, R2
+	0x0004 00004 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:9)	JMP	16
+	0x0008 00008 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:9)	SUB	$1, R1, R1
+	0x000c 00012 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:10)	ADD	R2, R0, R2
+	0x0010 00016 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:9)	CMP	$0, R1
+	0x0014 00020 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:9)	BGT	8
+	0x0018 00024 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:12)	MOVD	R2, R0
+	0x001c 00028 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:12)	RET	(R30)
+	0x0000 e2 03 1f aa 03 00 00 14 21 04 00 d1 02 00 02 8b  ........!.......
+	0x0010 3f 00 00 f1 ac ff ff 54 e0 03 02 aa c0 03 5f d6  ?......T......_.
+main.main STEXT size=32 args=0x0 locals=0x0 funcid=0x0 align=0x0 leaf
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:15)	TEXT	main.main(SB), LEAF|NOFRAME|ABIInternal, $0-0
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:15)	FUNCDATA	$0, gclocals·FzY36IO2mY0y4dZ1+Izd/w==(SB)
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:15)	FUNCDATA	$1, gclocals·FzY36IO2mY0y4dZ1+Izd/w==(SB)
+	0x0000 00000 (<unknown line number>)	NOP
+	0x0000 00000 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:17)	MOVD	ZR, R0
+	0x0004 00004 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:9)	JMP	12
+	0x0008 00008 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:9)	ADD	$1, R0, R0
+	0x000c 00012 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:9)	CMP	$2, R0
+	0x0010 00016 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:9)	BLT	8
+	0x0014 00020 (/Users/rnestertsov/personal/emacs/goasm/test/fixtures/main.go:19)	RET	(R30)
+	0x0000 e0 03 1f aa 02 00 00 14 00 04 00 91 1f 08 00 f1  ................
+	0x0010 cb ff ff 54 c0 03 5f d6 00 00 00 00 00 00 00 00  ...T.._.........
+go:cuinfo.producer.main SDWARFCUINFO dupok size=0
+	0x0000 2d 73 68 61 72 65 64 20 72 65 67 61 62 69        -shared regabi
+go:cuinfo.packagename.main SDWARFCUINFO dupok size=0
+	0x0000 6d 61 69 6e                                      main
+go:info.main.Add$abstract SDWARFABSFCN dupok size=30
+	0x0000 05 6d 61 69 6e 2e 41 64 64 00 01 03 01 22 61 00  .main.Add...."a.
+	0x0010 00 00 00 00 00 22 62 00 00 00 00 00 00 00        ....."b.......
+	rel 17+4 t=R_DWARFSECREF go:info.int+0
+	rel 25+4 t=R_DWARFSECREF go:info.int+0
+go:info.main.Multiply$abstract SDWARFABSFCN dupok size=56
+	0x0000 05 6d 61 69 6e 2e 4d 75 6c 74 69 70 6c 79 00 01  .main.Multiply..
+	0x0010 07 01 22 61 00 00 00 00 00 00 22 62 00 00 00 00  .."a......"b....
+	0x0020 00 00 21 72 65 73 75 6c 74 00 08 00 00 00 00 21  ..!result......!
+	0x0030 69 00 09 00 00 00 00 00                          i.......
+	rel 22+4 t=R_DWARFSECREF go:info.int+0
+	rel 30+4 t=R_DWARFSECREF go:info.int+0
+	rel 43+4 t=R_DWARFSECREF go:info.int+0
+	rel 51+4 t=R_DWARFSECREF go:info.int+0
+main..inittask SNOPTRDATA size=8
+	0x0000 00 00 00 00 00 00 00 00                          ........
+gclocals·FzY36IO2mY0y4dZ1+Izd/w== SRODATA dupok size=8
+	0x0000 01 00 00 00 00 00 00 00                          ........
+main.Add.arginfo1 SRODATA static dupok size=5
+	0x0000 00 08 08 08 ff                                   .....
+main.Add.argliveinfo SRODATA static dupok size=2
+	0x0000 00 00                                            ..
+main.Multiply.arginfo1 SRODATA static dupok size=5
+	0x0000 00 08 08 08 ff                                   .....
+main.Multiply.argliveinfo SRODATA static dupok size=2
+	0x0000 00 00                                            ..
