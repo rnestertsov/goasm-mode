@@ -569,4 +569,252 @@
     (should (eq (buffer-local-value 'eldoc-documentation-function (current-buffer))
                 #'goasm--eldoc-function))))
 
+;;; Jump-to-address unit tests
+
+(ert-deftest goasm-test-line-offset-instruction-line ()
+  "Extracts decimal byte offset from an instruction line."
+  (should (= 4 (goasm--line-offset
+                 "\t0x0004 00004 (main.go:9)\tJMP\t16"))))
+
+(ert-deftest goasm-test-line-offset-zero ()
+  "Extracts zero offset from the first instruction line."
+  (should (= 0 (goasm--line-offset
+                 "\t0x0000 00000 (main.go:7)\tTEXT\tmain.Multiply(SB)"))))
+
+(ert-deftest goasm-test-line-offset-header ()
+  "Returns nil for a function header line."
+  (should (null (goasm--line-offset
+                 "main.Multiply STEXT size=32 args=0x10"))))
+
+(ert-deftest goasm-test-line-offset-hex-dump ()
+  "Returns nil for hex dump lines (no source reference)."
+  (should (null (goasm--line-offset
+                 "\t0x0010 3f 00 00 f1 ac ff ff 54 e0 03 02 aa c0 03 5f d6  ?......T......_."))))
+
+(ert-deftest goasm-test-line-offset-empty ()
+  "Returns nil for empty string."
+  (should (null (goasm--line-offset ""))))
+
+(ert-deftest goasm-test-parse-jump-target-jmp ()
+  "Parses JMP instruction and returns target offset."
+  (should (= 16 (goasm--parse-jump-target
+                  "\t0x0004 00004 (main.go:9)\tJMP\t16"))))
+
+(ert-deftest goasm-test-parse-jump-target-bgt ()
+  "Parses BGT instruction and returns target offset."
+  (should (= 8 (goasm--parse-jump-target
+                 "\t0x0014 00020 (main.go:9)\tBGT\t8"))))
+
+(ert-deftest goasm-test-parse-jump-target-non-branch ()
+  "Returns nil for non-branch instructions."
+  (should (null (goasm--parse-jump-target
+                 "\t0x000c 00012 (main.go:10)\tADD\tR2, R0, R2"))))
+
+(ert-deftest goasm-test-parse-jump-target-call-with-symbol ()
+  "Returns nil for CALL with a symbolic target."
+  (should (null (goasm--parse-jump-target
+                 "\t0x0000 00000 (main.go:5)\tCALL\truntime.morestack(SB)"))))
+
+(ert-deftest goasm-test-parse-jump-target-header ()
+  "Returns nil for function header lines."
+  (should (null (goasm--parse-jump-target
+                 "main.Multiply STEXT size=32"))))
+
+(ert-deftest goasm-test-branch-instructions-contains-expected ()
+  "The branch instructions list contains JMP, BEQ, BGT."
+  (should (member "JMP" goasm--branch-instructions))
+  (should (member "BEQ" goasm--branch-instructions))
+  (should (member "BGT" goasm--branch-instructions)))
+
+(ert-deftest goasm-test-branch-instructions-excludes-call-ret ()
+  "The branch instructions list excludes CALL and RET."
+  (should-not (member "CALL" goasm--branch-instructions))
+  (should-not (member "RET" goasm--branch-instructions)))
+
+;;; Jump-to-address integration tests
+
+(defconst goasm-test--multiply-asm
+  (concat
+   "main.Multiply STEXT size=32 args=0x10 locals=0x0\n"
+   "\t0x0000 00000 (main.go:7)\tTEXT\tmain.Multiply(SB)\n"
+   "\t0x0000 00000 (main.go:7)\tFUNCDATA\t$0, gclocals(SB)\n"
+   "\t0x0000 00000 (main.go:9)\tMOVD\tZR, R2\n"
+   "\t0x0004 00004 (main.go:9)\tJMP\t16\n"
+   "\t0x0008 00008 (main.go:9)\tSUB\t$1, R1, R1\n"
+   "\t0x000c 00012 (main.go:10)\tADD\tR2, R0, R2\n"
+   "\t0x0010 00016 (main.go:9)\tCMP\t$0, R1\n"
+   "\t0x0014 00020 (main.go:9)\tBGT\t8\n"
+   "\t0x0018 00024 (main.go:12)\tMOVD\tR2, R0\n"
+   "\t0x001c 00028 (main.go:12)\tRET\t(R30)\n")
+  "Assembly text for Multiply function, used in jump-to-address tests.")
+
+(ert-deftest goasm-test-goto-offset-finds-target ()
+  "goasm--goto-offset moves point to the line with matching offset."
+  (with-temp-buffer
+    (insert goasm-test--multiply-asm)
+    (goto-char (point-min))
+    (goasm--goto-offset 16)
+    ;; Should be on the line with offset 16: CMP instruction
+    (let ((line (buffer-substring (line-beginning-position) (line-end-position))))
+      (should (string-match-p "00016" line))
+      (should (string-match-p "CMP" line)))))
+
+(ert-deftest goasm-test-goto-offset-finds-zero ()
+  "goasm--goto-offset can navigate to offset 0."
+  (with-temp-buffer
+    (insert goasm-test--multiply-asm)
+    (goto-char (point-max))
+    (goasm--goto-offset 0)
+    ;; Should be on the first instruction line (offset 0)
+    (let ((line (buffer-substring (line-beginning-position) (line-end-position))))
+      (should (string-match-p "00000" line)))))
+
+(ert-deftest goasm-test-goto-offset-invalid ()
+  "goasm--goto-offset signals user-error for non-existent offset."
+  (with-temp-buffer
+    (insert goasm-test--multiply-asm)
+    (goto-char (point-min))
+    (should-error (goasm--goto-offset 999) :type 'user-error)))
+
+(ert-deftest goasm-test-goto-offset-pushes-mark ()
+  "goasm--goto-offset pushes mark for back-navigation."
+  (with-temp-buffer
+    (insert goasm-test--multiply-asm)
+    (goto-char (point-min))
+    (forward-line 4)  ;; Start on JMP line
+    (let ((original-pos (point)))
+      (goasm--goto-offset 16)
+      ;; Mark should be set at original position
+      (should (= original-pos (mark t))))))
+
+(ert-deftest goasm-test-jump-to-address-decimal ()
+  "goasm-jump-to-address navigates with decimal input."
+  (with-temp-buffer
+    (insert goasm-test--multiply-asm)
+    (goasm-output-mode)
+    (goto-char (point-min))
+    ;; Simulate interactive call with decimal "16"
+    (let ((goasm--test-jump-input "16"))
+      (cl-letf (((symbol-function 'read-string)
+                 (lambda (&rest _) goasm--test-jump-input)))
+        (goasm-jump-to-address "16")))
+    (let ((line (buffer-substring (line-beginning-position) (line-end-position))))
+      (should (string-match-p "00016" line)))))
+
+(ert-deftest goasm-test-jump-to-address-hex ()
+  "goasm-jump-to-address navigates with hex input."
+  (with-temp-buffer
+    (insert goasm-test--multiply-asm)
+    (goasm-output-mode)
+    (goto-char (point-min))
+    (goasm-jump-to-address "0x10")
+    (let ((line (buffer-substring (line-beginning-position) (line-end-position))))
+      (should (string-match-p "00016" line)))))
+
+(ert-deftest goasm-test-jump-to-address-zero ()
+  "goasm-jump-to-address handles zero offset."
+  (with-temp-buffer
+    (insert goasm-test--multiply-asm)
+    (goasm-output-mode)
+    (goto-char (point-max))
+    (goasm-jump-to-address "0")
+    (let ((line (buffer-substring (line-beginning-position) (line-end-position))))
+      (should (string-match-p "00000" line)))))
+
+(ert-deftest goasm-test-jump-to-address-invalid ()
+  "goasm-jump-to-address signals error for non-numeric input."
+  (with-temp-buffer
+    (insert goasm-test--multiply-asm)
+    (goasm-output-mode)
+    (goto-char (point-min))
+    (should-error (goasm-jump-to-address "xyz") :type 'user-error)))
+
+(ert-deftest goasm-test-follow-jump-on-jmp ()
+  "goasm-follow-jump follows JMP 16 to offset 16."
+  (with-temp-buffer
+    (insert goasm-test--multiply-asm)
+    (goasm-output-mode)
+    (goto-char (point-min))
+    ;; Go to JMP 16 line (line 5 in the buffer)
+    (forward-line 4)
+    (goasm-follow-jump)
+    (let ((line (buffer-substring (line-beginning-position) (line-end-position))))
+      (should (string-match-p "00016" line))
+      (should (string-match-p "CMP" line)))))
+
+(ert-deftest goasm-test-follow-jump-on-bgt ()
+  "goasm-follow-jump follows BGT 8 to offset 8."
+  (with-temp-buffer
+    (insert goasm-test--multiply-asm)
+    (goasm-output-mode)
+    (goto-char (point-min))
+    ;; Go to BGT 8 line (line 9 in the buffer)
+    (forward-line 8)
+    (goasm-follow-jump)
+    (let ((line (buffer-substring (line-beginning-position) (line-end-position))))
+      (should (string-match-p "00008" line))
+      (should (string-match-p "SUB" line)))))
+
+(ert-deftest goasm-test-follow-jump-on-non-branch ()
+  "goasm-follow-jump signals error on non-branch line."
+  (with-temp-buffer
+    (insert goasm-test--multiply-asm)
+    (goasm-output-mode)
+    (goto-char (point-min))
+    ;; Go to ADD line (line 7 in the buffer)
+    (forward-line 6)
+    (should-error (goasm-follow-jump) :type 'user-error)))
+
+;;; Jump-to-address keybinding tests
+
+(ert-deftest goasm-test-output-mode-keybinding-jump ()
+  "C-c C-j is bound to goasm-jump-to-address in goasm-output-mode."
+  (with-temp-buffer
+    (goasm-output-mode)
+    (should (eq (key-binding (kbd "C-c C-j")) 'goasm-jump-to-address))))
+
+(ert-deftest goasm-test-output-mode-keybinding-follow ()
+  "C-c C-f is bound to goasm-follow-jump in goasm-output-mode."
+  (with-temp-buffer
+    (goasm-output-mode)
+    (should (eq (key-binding (kbd "C-c C-f")) 'goasm-follow-jump))))
+
+;;; Jump-to-address end-to-end test
+
+(ert-deftest goasm-test-follow-jump-end-to-end ()
+  "End-to-end: generate assembly for Multiply, follow JMP and BGT."
+  (when (get-buffer "*goasm*") (kill-buffer "*goasm*"))
+  (let ((go-file (goasm-test-fixture-path "main.go")))
+    (unwind-protect
+        (progn
+          (find-file go-file)
+          (goasm-minor-mode 1)
+          ;; Move to Multiply function body
+          (goto-char (point-min))
+          (search-forward "result += a")
+          ;; Generate assembly
+          (goasm-show)
+          (should (get-buffer "*goasm*"))
+          (with-current-buffer "*goasm*"
+            ;; Find the JMP line and follow it
+            (goto-char (point-min))
+            (re-search-forward "\tJMP\t")
+            (beginning-of-line)
+            (goasm-follow-jump)
+            ;; Should land on CMP line (offset 16)
+            (let ((line (buffer-substring (line-beginning-position)
+                                          (line-end-position))))
+              (should (string-match-p "CMP" line)))
+            ;; Now find BGT and follow it
+            (goto-char (point-min))
+            (re-search-forward "\tBGT\t")
+            (beginning-of-line)
+            (goasm-follow-jump)
+            ;; Should land on SUB line (offset 8)
+            (let ((line (buffer-substring (line-beginning-position)
+                                          (line-end-position))))
+              (should (string-match-p "SUB" line)))))
+      (when (get-buffer go-file) (kill-buffer (get-file-buffer go-file)))
+      (when (get-buffer "*goasm*") (kill-buffer "*goasm*")))))
+
 ;;; goasm-test.el ends here

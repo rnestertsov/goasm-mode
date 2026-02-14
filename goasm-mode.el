@@ -21,6 +21,8 @@
 
 ;;; Code:
 
+(require 'pulse)
+
 (defgroup goasm nil
   "Go assembly viewer."
   :group 'languages
@@ -235,6 +237,67 @@ Returns the mnemonic string or nil for non-instruction lines."
              (string-match ")\t\\([A-Z][A-Z0-9]*\\)" line))
     (match-string 1 line)))
 
+(defun goasm--line-offset (line)
+  "Extract the decimal byte offset from an assembly LINE.
+Returns an integer or nil for non-instruction lines and hex dumps."
+  (when (and (stringp line)
+             (not (string-empty-p line))
+             (string-match "^\t0x[0-9a-f]+ \\([0-9]+\\) (" line))
+    (string-to-number (match-string 1 line))))
+
+(defun goasm--parse-jump-target (line)
+  "Extract the target byte offset from a branch instruction LINE.
+Returns an integer or nil for non-branch lines or symbolic targets."
+  (let ((mnemonic (goasm--parse-instruction line)))
+    (when (and mnemonic
+               (member mnemonic goasm--branch-instructions)
+               (string-match ")\t[A-Z][A-Z0-9]*\t\\([0-9]+\\)\\s-*$" line))
+      (string-to-number (match-string 1 line)))))
+
+(defun goasm--goto-offset (target-offset)
+  "Move point to the assembly line with TARGET-OFFSET.
+Pushes mark for back-navigation with \\[pop-global-mark].
+Pulses the target line for visual feedback.
+Signals `user-error' if no line with that offset exists."
+  (push-mark (point) t)
+  (let ((found nil))
+    (save-excursion
+      (goto-char (point-min))
+      (while (and (not found) (not (eobp)))
+        (let* ((line (buffer-substring-no-properties
+                      (line-beginning-position) (line-end-position)))
+               (offset (goasm--line-offset line)))
+          (when (and offset (= offset target-offset))
+            (setq found (point))))
+        (forward-line 1)))
+    (unless found
+      (user-error "No assembly line with offset %d" target-offset))
+    (goto-char found)
+    (pulse-momentary-highlight-one-line (point))))
+
+(defun goasm-jump-to-address (addr-string)
+  "Jump to the assembly line at byte offset ADDR-STRING.
+Accepts decimal (\"16\") or hex with prefix (\"0x10\")."
+  (interactive "sJump to offset: ")
+  (let ((offset (cond
+                 ((string-match-p "\\`0x[0-9a-fA-F]+\\'" addr-string)
+                  (string-to-number (substring addr-string 2) 16))
+                 ((string-match-p "\\`[0-9]+\\'" addr-string)
+                  (string-to-number addr-string))
+                 (t (user-error "Invalid offset: %s (use decimal or 0x hex)" addr-string)))))
+    (goasm--goto-offset offset)))
+
+(defun goasm-follow-jump ()
+  "Follow the branch/jump instruction on the current line.
+Reads the target byte offset and navigates to it."
+  (interactive)
+  (let* ((line (buffer-substring-no-properties
+                (line-beginning-position) (line-end-position)))
+         (target (goasm--parse-jump-target line)))
+    (unless target
+      (user-error "No branch instruction on this line"))
+    (goasm--goto-offset target)))
+
 (defun goasm--instruction-doc (mnemonic)
   "Return a short description for MNEMONIC, or nil if unknown.
 Tries an exact match first, then strips size suffixes
@@ -264,6 +327,12 @@ Intended for use as `eldoc-documentation-function'."
 (defconst goasm--pseudo-instructions
   '("TEXT" "FUNCDATA" "PCDATA" "DATA" "GLOBL" "PCALIGN")
   "Go assembler pseudo-instructions documented at go.dev/doc/asm.")
+
+(defconst goasm--branch-instructions
+  '("JMP" "JE" "JNE" "JZ" "JNZ" "JL" "JG" "JLE" "JGE"
+    "JA" "JB" "JAE" "JBE"
+    "B" "BEQ" "BNE" "BGT" "BLT" "BGE" "BLE")
+  "Branch/jump instructions that take a local byte offset as operand.")
 
 (defun goasm--detect-arch ()
   "Detect the target architecture by running `go env GOARCH'.
@@ -341,6 +410,8 @@ switches to the source buffer at that line."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-l") #'goasm-goto-source)
     (define-key map (kbd "C-c C-d") #'goasm-describe-instruction)
+    (define-key map (kbd "C-c C-j") #'goasm-jump-to-address)
+    (define-key map (kbd "C-c C-f") #'goasm-follow-jump)
     map)
   "Keymap for `goasm-output-mode'.")
 
