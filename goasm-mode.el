@@ -2,11 +2,25 @@
 ;; ABOUTME: Emacs minor mode for viewing Go compiler assembly output.
 ;; ABOUTME: Provides per-function assembly display with source line navigation.
 
-;; Author: Roman Nestertsov
+;; Author: Roman Nestertsov <r.nestertsov@gmail.com>
+;; Maintainer: Roman Nestertsov <r.nestertsov@gmail.com>
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "27.1"))
-;; URL: https://github.com/rnestertsov/goasm
-;; Keywords: languages, go, assembly
+;; URL: https://github.com/rnestertsov/goasm-mode
+;; Keywords: languages tools
+
+;; This file is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation; either version 3, or (at your option)
+;; any later version.
+;;
+;; This file is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -16,8 +30,8 @@
 ;;
 ;; Usage:
 ;;   M-x goasm-minor-mode   - Enable in a Go buffer
-;;   C-c C-a                - Generate assembly for current function
-;;   C-c C-l                - Jump assembly view to current source line
+;;   C-c !                  - Generate assembly for current function
+;;   C-c .                  - Jump assembly view to current source line
 
 ;;; Code:
 
@@ -150,7 +164,7 @@ Returns the compiler output (assembly or error messages)."
   "Target architecture (e.g. \"amd64\", \"arm64\") for the *goasm* buffer.
 Set during `goasm-show' via `go env GOARCH'.")
 
-(defvar goasm-output-font-lock-keywords
+(defconst goasm-output-font-lock-keywords
   '(;; Instructions (mnemonics)
     ("\\<\\(MOVD\\|MOVQ\\|MOVL\\|MOVB\\|MOVW\\|ADD\\|SUB\\|MUL\\|DIV\\|AND\\|OR\\|XOR\\|SHL\\|SHR\\|CMP\\|TEST\\|JMP\\|JE\\|JNE\\|JZ\\|JNZ\\|JL\\|JG\\|JLE\\|JGE\\|BEQ\\|BNE\\|BGT\\|BLT\\|BGE\\|BLE\\|CALL\\|RET\\|NOP\\|PUSH\\|POP\\|LEA\\|TEXT\\|FUNCDATA\\|PCDATA\\)\\>" . font-lock-keyword-face)
     ;; Registers
@@ -228,6 +242,16 @@ Set during `goasm-show' via `go env GOARCH'.")
   "Alist of (MNEMONIC . description) for Go assembly instructions.
 Covers Go pseudo-instructions, x86, and ARM mnemonics (base forms
 without size suffixes).")
+
+(defconst goasm--pseudo-instructions
+  '("TEXT" "FUNCDATA" "PCDATA" "DATA" "GLOBL" "PCALIGN")
+  "Go assembler pseudo-instructions documented at go.dev/doc/asm.")
+
+(defconst goasm--branch-instructions
+  '("JMP" "JE" "JNE" "JZ" "JNZ" "JL" "JG" "JLE" "JGE"
+    "JA" "JB" "JAE" "JBE"
+    "B" "BEQ" "BNE" "BGT" "BLT" "BGE" "BLE")
+  "Branch/jump instructions that take a local byte offset as operand.")
 
 (defun goasm--parse-instruction (line)
   "Extract the instruction mnemonic from an assembly LINE.
@@ -324,16 +348,6 @@ Intended for use as `eldoc-documentation-function'."
         (when desc
           (format "%s - %s" mnemonic desc))))))
 
-(defconst goasm--pseudo-instructions
-  '("TEXT" "FUNCDATA" "PCDATA" "DATA" "GLOBL" "PCALIGN")
-  "Go assembler pseudo-instructions documented at go.dev/doc/asm.")
-
-(defconst goasm--branch-instructions
-  '("JMP" "JE" "JNE" "JZ" "JNZ" "JL" "JG" "JLE" "JGE"
-    "JA" "JB" "JAE" "JBE"
-    "B" "BEQ" "BNE" "BGT" "BLT" "BGE" "BLE")
-  "Branch/jump instructions that take a local byte offset as operand.")
-
 (defun goasm--detect-arch ()
   "Detect the target architecture by running `go env GOARCH'.
 Returns a string like \"amd64\" or \"arm64\"."
@@ -408,10 +422,10 @@ switches to the source buffer at that line."
 
 (defvar goasm-output-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-l") #'goasm-goto-source)
-    (define-key map (kbd "C-c C-d") #'goasm-describe-instruction)
-    (define-key map (kbd "C-c C-j") #'goasm-jump-to-address)
-    (define-key map (kbd "C-c C-f") #'goasm-follow-jump)
+    (define-key map (kbd "l") #'goasm-goto-source)
+    (define-key map (kbd "d") #'goasm-describe-instruction)
+    (define-key map (kbd "j") #'goasm-jump-to-address)
+    (define-key map (kbd "s") #'goasm-follow-jump)
     map)
   "Keymap for `goasm-output-mode'.")
 
@@ -512,7 +526,7 @@ enclosing function in the *goasm* buffer."
   (setq goasm--highlight-overlays nil))
 
 (defface goasm-highlight-face
-  '((t :background "#3a3a5a" :extend t))
+  '((t :inherit highlight :extend t))
   "Face used to highlight assembly lines corresponding to current source line."
   :group 'goasm)
 
@@ -562,8 +576,8 @@ Automatically compiles if needed for the current function."
 
 (defvar goasm-minor-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-a") #'goasm-show)
-    (define-key map (kbd "C-c C-l") #'goasm-goto-line)
+    (define-key map (kbd "C-c !") #'goasm-show)
+    (define-key map (kbd "C-c .") #'goasm-goto-line)
     map)
   "Keymap for `goasm-minor-mode'.")
 

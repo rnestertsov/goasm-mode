@@ -29,10 +29,11 @@ help:
 test:
 	@emacs -batch -l goasm-mode.el -l goasm-mode-test.el -f ert-run-tests-batch-and-exit
 
-## lint: Byte-compile goasm.el and check for warnings
+## lint: Byte-compile and run package-lint
 .PHONY: lint
 lint:
 	@emacs -batch --eval '(setq byte-compile-error-on-warn t)' -f batch-byte-compile goasm-mode.el
+	@emacs -Q --batch --eval '(require (quote package))' --eval '(package-initialize)' --eval '(require (quote package-lint))' -f package-lint-batch-and-exit goasm-mode.el
 
 ## clean: Remove compiled files
 .PHONY: clean

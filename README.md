@@ -8,7 +8,7 @@ An Emacs minor mode for viewing Go compiler assembly output. Generates Plan 9 ps
 - **Source-to-assembly navigation** - Jump the assembly view to the instructions corresponding to the current source line
 - **Assembly-to-source navigation** - Jump from an assembly line back to the corresponding source line
 - **Jump-to-address navigation** - Follow branch/jump instructions to their target offset, or jump to any byte offset manually
-- **Instruction documentation** - Inline eldoc hints for assembly instructions, plus `C-c C-d` to open full documentation in a browser (x86/ARM/Go pseudo-instructions)
+- **Instruction documentation** - Inline eldoc hints for assembly instructions, plus `d` to open full documentation in a browser (x86/ARM/Go pseudo-instructions)
 - **Assembly highlighting** - Matching assembly lines are highlighted when navigating from source
 - **Syntax highlighting** - Assembly instructions, registers, hex addresses, and source references are font-locked in the output buffer
 - **Auto-recompilation** - Moving to a different function and navigating automatically re-generates assembly
@@ -56,32 +56,32 @@ Or add it to your `go-mode` hook:
 
 In a Go source buffer (`goasm-minor-mode`):
 
-| Key       | Command          | Description                                       |
-|-----------|------------------|---------------------------------------------------|
-| `C-c C-a` | `goasm-show`     | Generate assembly for the function at point        |
-| `C-c C-l` | `goasm-goto-line`| Show assembly for the current source line (compiles automatically if needed) |
+| Key     | Command          | Description                                       |
+|---------|------------------|---------------------------------------------------|
+| `C-c !` | `goasm-show`     | Generate assembly for the function at point        |
+| `C-c .` | `goasm-goto-line`| Show assembly for the current source line (compiles automatically if needed) |
 
 In the `*goasm*` assembly buffer:
 
-| Key       | Command                      | Description                                       |
-|-----------|------------------------------|---------------------------------------------------|
-| `C-c C-l` | `goasm-goto-source`          | Jump to the source line referenced by the current assembly line |
-| `C-c C-d` | `goasm-describe-instruction` | Open documentation for the instruction on the current line |
-| `C-c C-f` | `goasm-follow-jump`          | Follow the branch/jump instruction on the current line to its target |
-| `C-c C-j` | `goasm-jump-to-address`      | Jump to an assembly line by byte offset (decimal or `0x` hex) |
+| Key | Command                      | Description                                       |
+|-----|------------------------------|---------------------------------------------------|
+| `l` | `goasm-goto-source`          | Jump to the source line referenced by the current assembly line |
+| `d` | `goasm-describe-instruction` | Open documentation for the instruction on the current line |
+| `s` | `goasm-follow-jump`          | Follow the branch/jump instruction on the current line to its target |
+| `j` | `goasm-jump-to-address`      | Jump to an assembly line by byte offset (decimal or `0x` hex) |
 
 ### Workflow
 
 1. Open a Go source file and enable `goasm-minor-mode`
 2. Place your cursor inside a function
-3. Press `C-c C-l` to see the assembly for the current line — assembly is compiled automatically on first use and when you move to a different function
-4. Move to other source lines and press `C-c C-l` again to jump the assembly view and highlight the matching instructions
-5. In the `*goasm*` buffer, press `C-c C-l` on any assembly line to jump back to the corresponding source line
-6. Hover on any instruction to see a short description via eldoc, or press `C-c C-d` to open full documentation in your browser
-7. On a branch/jump instruction (e.g. `JMP 16`, `BGT 8`), press `C-c C-f` to follow it to its target offset — use `C-u C-SPC` to jump back
-8. Press `C-c C-j` to jump to any byte offset by typing it (decimal or `0x` hex)
+3. Press `C-c .` to see the assembly for the current line — assembly is compiled automatically on first use and when you move to a different function
+4. Move to other source lines and press `C-c .` again to jump the assembly view and highlight the matching instructions
+5. In the `*goasm*` buffer, press `l` on any assembly line to jump back to the corresponding source line
+6. Hover on any instruction to see a short description via eldoc, or press `d` to open full documentation in your browser
+7. On a branch/jump instruction (e.g. `JMP 16`, `BGT 8`), press `s` to follow it to its target offset — use `C-u C-SPC` to jump back
+8. Press `j` to jump to any byte offset by typing it (decimal or `0x` hex)
 
-You can also use `C-c C-a` to explicitly generate assembly without navigating to a specific line.
+You can also use `C-c !` to explicitly generate assembly without navigating to a specific line.
 
 ## Customization
 
@@ -102,7 +102,7 @@ make clean   # Remove compiled files
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+GPL-3.0. See [LICENSE](LICENSE) for details.
 
 ## Author
 

@@ -287,8 +287,8 @@
   "goasm-minor-mode binds expected keys."
   (with-temp-buffer
     (goasm-minor-mode 1)
-    (should (eq (key-binding (kbd "C-c C-a")) 'goasm-show))
-    (should (eq (key-binding (kbd "C-c C-l")) 'goasm-goto-line))))
+    (should (eq (key-binding (kbd "C-c !")) 'goasm-show))
+    (should (eq (key-binding (kbd "C-c .")) 'goasm-goto-line))))
 
 (ert-deftest goasm-test-minor-mode-deactivates ()
   "goasm-minor-mode can be deactivated."
@@ -406,10 +406,10 @@
       (when (get-buffer "*goasm*") (kill-buffer "*goasm*")))))
 
 (ert-deftest goasm-test-output-mode-keybinding ()
-  "C-c C-l is bound to goasm-goto-source in goasm-output-mode."
+  "l is bound to goasm-goto-source in goasm-output-mode."
   (with-temp-buffer
     (goasm-output-mode)
-    (should (eq (key-binding (kbd "C-c C-l")) 'goasm-goto-source))))
+    (should (eq (key-binding (kbd "l")) 'goasm-goto-source))))
 
 (ert-deftest goasm-test-goto-source-parses-reference ()
   "goasm-goto-source jumps to the correct source line from assembly."
@@ -549,10 +549,10 @@
     (should (not (string-empty-p arch)))))
 
 (ert-deftest goasm-test-output-mode-keybinding-describe ()
-  "C-c C-d is bound to goasm-describe-instruction in goasm-output-mode."
+  "d is bound to goasm-describe-instruction in goasm-output-mode."
   (with-temp-buffer
     (goasm-output-mode)
-    (should (eq (key-binding (kbd "C-c C-d")) 'goasm-describe-instruction))))
+    (should (eq (key-binding (kbd "d")) 'goasm-describe-instruction))))
 
 (ert-deftest goasm-test-describe-instruction-errors-on-header ()
   "goasm-describe-instruction signals error on non-instruction lines."
@@ -768,16 +768,16 @@
 ;;; Jump-to-address keybinding tests
 
 (ert-deftest goasm-test-output-mode-keybinding-jump ()
-  "C-c C-j is bound to goasm-jump-to-address in goasm-output-mode."
+  "j is bound to goasm-jump-to-address in goasm-output-mode."
   (with-temp-buffer
     (goasm-output-mode)
-    (should (eq (key-binding (kbd "C-c C-j")) 'goasm-jump-to-address))))
+    (should (eq (key-binding (kbd "j")) 'goasm-jump-to-address))))
 
 (ert-deftest goasm-test-output-mode-keybinding-follow ()
-  "C-c C-f is bound to goasm-follow-jump in goasm-output-mode."
+  "s is bound to goasm-follow-jump in goasm-output-mode."
   (with-temp-buffer
     (goasm-output-mode)
-    (should (eq (key-binding (kbd "C-c C-f")) 'goasm-follow-jump))))
+    (should (eq (key-binding (kbd "s")) 'goasm-follow-jump))))
 
 ;;; Jump-to-address end-to-end test
 
