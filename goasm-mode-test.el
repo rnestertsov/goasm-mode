@@ -482,4 +482,91 @@
       (when (get-buffer go-file) (kill-buffer (get-file-buffer go-file)))
       (when (get-buffer "*goasm*") (kill-buffer "*goasm*")))))
 
+;;; Instruction parsing and documentation tests
+
+(ert-deftest goasm-test-parse-instruction-from-asm-line ()
+  "Extracts mnemonic from a standard assembly line."
+  (should (equal "MOVQ"
+                 (goasm--parse-instruction
+                  "\t0x0000 00000 (main.go:3)\tMOVQ\tAX, BX"))))
+
+(ert-deftest goasm-test-parse-instruction-no-operands ()
+  "Extracts mnemonic from an instruction with no operands."
+  (should (equal "RET"
+                 (goasm--parse-instruction
+                  "\t0x0004 00004 (main.go:4)\tRET"))))
+
+(ert-deftest goasm-test-parse-instruction-returns-nil-for-header ()
+  "Returns nil for a function header line."
+  (should (null (goasm--parse-instruction
+                 "main.Add STEXT size=16 args=0x10"))))
+
+(ert-deftest goasm-test-parse-instruction-returns-nil-for-hex-dump ()
+  "Returns nil for hex dump lines."
+  (should (null (goasm--parse-instruction
+                 "\t0x0000 48 8b 44 24 08"))))
+
+(ert-deftest goasm-test-parse-instruction-returns-nil-for-empty ()
+  "Returns nil for empty string."
+  (should (null (goasm--parse-instruction ""))))
+
+(ert-deftest goasm-test-instruction-doc-exact-match ()
+  "Returns description for a known instruction."
+  (should (stringp (goasm--instruction-doc "MOV"))))
+
+(ert-deftest goasm-test-instruction-doc-suffix-stripping ()
+  "Returns description for MOVQ by stripping Q suffix to find MOV."
+  (should (stringp (goasm--instruction-doc "MOVQ"))))
+
+(ert-deftest goasm-test-instruction-doc-unknown ()
+  "Returns nil for an unknown instruction."
+  (should (null (goasm--instruction-doc "ZZZNONSENSE"))))
+
+(ert-deftest goasm-test-instruction-doc-pseudo-instruction ()
+  "Returns description for Go pseudo-instructions."
+  (should (stringp (goasm--instruction-doc "TEXT")))
+  (should (stringp (goasm--instruction-doc "FUNCDATA")))
+  (should (stringp (goasm--instruction-doc "PCDATA"))))
+
+(ert-deftest goasm-test-eldoc-function-returns-string ()
+  "Eldoc function returns formatted string on an instruction line."
+  (with-temp-buffer
+    (insert "\t0x0000 00000 (main.go:3)\tMOVQ\tAX, BX\n")
+    (goto-char (point-min))
+    (should (stringp (goasm--eldoc-function)))))
+
+(ert-deftest goasm-test-eldoc-function-returns-nil-for-header ()
+  "Eldoc function returns nil on non-instruction lines."
+  (with-temp-buffer
+    (insert "main.Add STEXT size=16\n")
+    (goto-char (point-min))
+    (should (null (goasm--eldoc-function)))))
+
+(ert-deftest goasm-test-detect-arch-returns-string ()
+  "goasm--detect-arch returns a non-empty architecture string."
+  (let ((arch (goasm--detect-arch)))
+    (should (stringp arch))
+    (should (not (string-empty-p arch)))))
+
+(ert-deftest goasm-test-output-mode-keybinding-describe ()
+  "C-c C-d is bound to goasm-describe-instruction in goasm-output-mode."
+  (with-temp-buffer
+    (goasm-output-mode)
+    (should (eq (key-binding (kbd "C-c C-d")) 'goasm-describe-instruction))))
+
+(ert-deftest goasm-test-describe-instruction-errors-on-header ()
+  "goasm-describe-instruction signals error on non-instruction lines."
+  (with-temp-buffer
+    (insert "main.Add STEXT size=16\n")
+    (goasm-output-mode)
+    (goto-char (point-min))
+    (should-error (goasm-describe-instruction) :type 'user-error)))
+
+(ert-deftest goasm-test-output-mode-enables-eldoc ()
+  "goasm-output-mode sets eldoc-documentation-function."
+  (with-temp-buffer
+    (goasm-output-mode)
+    (should (eq (buffer-local-value 'eldoc-documentation-function (current-buffer))
+                #'goasm--eldoc-function))))
+
 ;;; goasm-test.el ends here

@@ -144,6 +144,10 @@ Returns the compiler output (assembly or error messages)."
 (defvar-local goasm--project-root nil
   "The Go project root directory for resolving relative paths in assembly.")
 
+(defvar-local goasm--arch nil
+  "Target architecture (e.g. \"amd64\", \"arm64\") for the *goasm* buffer.
+Set during `goasm-show' via `go env GOARCH'.")
+
 (defvar goasm-output-font-lock-keywords
   '(;; Instructions (mnemonics)
     ("\\<\\(MOVD\\|MOVQ\\|MOVL\\|MOVB\\|MOVW\\|ADD\\|SUB\\|MUL\\|DIV\\|AND\\|OR\\|XOR\\|SHL\\|SHR\\|CMP\\|TEST\\|JMP\\|JE\\|JNE\\|JZ\\|JNZ\\|JL\\|JG\\|JLE\\|JGE\\|BEQ\\|BNE\\|BGT\\|BLT\\|BGE\\|BLE\\|CALL\\|RET\\|NOP\\|PUSH\\|POP\\|LEA\\|TEXT\\|FUNCDATA\\|PCDATA\\)\\>" . font-lock-keyword-face)
@@ -154,6 +158,155 @@ Returns the compiler output (assembly or error messages)."
     ;; Source references: (file.go:123)
     ("([^)]+:[0-9]+)" . font-lock-comment-face))
   "Font lock keywords for goasm-output-mode.")
+
+(defconst goasm--instruction-docs
+  '(;; Go pseudo-instructions
+    ("TEXT" . "Declare a function entry point")
+    ("FUNCDATA" . "Attach runtime metadata to a function (GC, args)")
+    ("PCDATA" . "Annotate PC-value table for runtime (stack maps, unsafe points)")
+    ("DATA" . "Initialize a memory region with a value")
+    ("GLOBL" . "Declare a global symbol with size and flags")
+    ("PCALIGN" . "Align next instruction to a power-of-two boundary")
+    ;; Data movement
+    ("MOV" . "Copy value from source to destination")
+    ("LEA" . "Load effective address (compute address without dereference)")
+    ("PUSH" . "Push value onto the stack")
+    ("POP" . "Pop value from the stack")
+    ("XCHG" . "Exchange values between two operands")
+    ("BSWAP" . "Byte-swap a register (reverse byte order)")
+    ("POPCNT" . "Count the number of set bits")
+    ;; Arithmetic
+    ("ADD" . "Add source to destination")
+    ("SUB" . "Subtract source from destination")
+    ("MUL" . "Unsigned multiply")
+    ("IMUL" . "Signed multiply")
+    ("DIV" . "Unsigned divide")
+    ("IDIV" . "Signed divide")
+    ("INC" . "Increment by one")
+    ("DEC" . "Decrement by one")
+    ("NEG" . "Two's complement negate")
+    ("NOT" . "Bitwise NOT (one's complement)")
+    ;; Bitwise / logical
+    ("AND" . "Bitwise AND")
+    ("OR" . "Bitwise OR")
+    ("XOR" . "Bitwise exclusive OR")
+    ("SHL" . "Shift left (logical)")
+    ("SHR" . "Shift right (logical)")
+    ("SAR" . "Shift right (arithmetic, sign-extending)")
+    ;; Comparison / test
+    ("CMP" . "Compare two operands (subtract and set flags)")
+    ("TEST" . "Bitwise AND and set flags (discard result)")
+    ;; Jumps (x86-style)
+    ("JMP" . "Unconditional jump")
+    ("JE" . "Jump if equal (ZF=1)")
+    ("JNE" . "Jump if not equal (ZF=0)")
+    ("JZ" . "Jump if zero (ZF=1)")
+    ("JNZ" . "Jump if not zero (ZF=0)")
+    ("JL" . "Jump if less (signed)")
+    ("JG" . "Jump if greater (signed)")
+    ("JLE" . "Jump if less or equal (signed)")
+    ("JGE" . "Jump if greater or equal (signed)")
+    ("JA" . "Jump if above (unsigned)")
+    ("JB" . "Jump if below (unsigned)")
+    ("JAE" . "Jump if above or equal (unsigned)")
+    ("JBE" . "Jump if below or equal (unsigned)")
+    ;; Branches (ARM-style)
+    ("B" . "Unconditional branch")
+    ("BEQ" . "Branch if equal")
+    ("BNE" . "Branch if not equal")
+    ("BGT" . "Branch if greater than")
+    ("BLT" . "Branch if less than")
+    ("BGE" . "Branch if greater or equal")
+    ("BLE" . "Branch if less or equal")
+    ;; Control flow
+    ("CALL" . "Call a subroutine (push return address and jump)")
+    ("RET" . "Return from subroutine")
+    ("NOP" . "No operation")
+    ("SYSCALL" . "Invoke operating system service"))
+  "Alist of (MNEMONIC . description) for Go assembly instructions.
+Covers Go pseudo-instructions, x86, and ARM mnemonics (base forms
+without size suffixes).")
+
+(defun goasm--parse-instruction (line)
+  "Extract the instruction mnemonic from an assembly LINE.
+Returns the mnemonic string or nil for non-instruction lines."
+  (when (and (stringp line)
+             (not (string-empty-p line))
+             (string-match ")\t\\([A-Z][A-Z0-9]*\\)" line))
+    (match-string 1 line)))
+
+(defun goasm--instruction-doc (mnemonic)
+  "Return a short description for MNEMONIC, or nil if unknown.
+Tries an exact match first, then strips size suffixes
+\(B, W, L, Q, D, S, SS, SD) to find the base instruction."
+  (or (cdr (assoc mnemonic goasm--instruction-docs))
+      ;; Strip size suffixes: try longest first (SS, SD) then single char
+      (let ((base nil))
+        (cond
+         ((string-match "\\`\\(.*[A-Z]\\)\\(?:SS\\|SD\\)\\'" mnemonic)
+          (setq base (match-string 1 mnemonic)))
+         ((string-match "\\`\\(.*[A-Z]\\)[BWLQDS]\\'" mnemonic)
+          (setq base (match-string 1 mnemonic))))
+        (when base
+          (cdr (assoc base goasm--instruction-docs))))))
+
+(defun goasm--eldoc-function ()
+  "Return a short doc string for the instruction on the current line.
+Intended for use as `eldoc-documentation-function'."
+  (let* ((line (buffer-substring-no-properties
+                (line-beginning-position) (line-end-position)))
+         (mnemonic (goasm--parse-instruction line)))
+    (when mnemonic
+      (let ((desc (goasm--instruction-doc mnemonic)))
+        (when desc
+          (format "%s - %s" mnemonic desc))))))
+
+(defconst goasm--pseudo-instructions
+  '("TEXT" "FUNCDATA" "PCDATA" "DATA" "GLOBL" "PCALIGN")
+  "Go assembler pseudo-instructions documented at go.dev/doc/asm.")
+
+(defun goasm--detect-arch ()
+  "Detect the target architecture by running `go env GOARCH'.
+Returns a string like \"amd64\" or \"arm64\"."
+  (string-trim
+   (with-temp-buffer
+     (call-process goasm-go-command nil t nil "env" "GOARCH")
+     (buffer-string))))
+
+(defun goasm-describe-instruction ()
+  "Open documentation for the instruction on the current line.
+For Go pseudo-instructions, opens go.dev/doc/asm.
+For x86/amd64, opens felixcloutier.com/x86/{instruction}.
+For ARM64, opens the ARM developer documentation index."
+  (interactive)
+  (let* ((line (buffer-substring-no-properties
+                (line-beginning-position) (line-end-position)))
+         (mnemonic (goasm--parse-instruction line)))
+    (unless mnemonic
+      (user-error "No instruction on this line"))
+    (let ((url (cond
+                ;; Go pseudo-instructions
+                ((member mnemonic goasm--pseudo-instructions)
+                 "https://go.dev/doc/asm")
+                ;; ARM64 — link to index (per-instruction URLs are complex)
+                ((equal goasm--arch "arm64")
+                 "https://developer.arm.com/documentation/ddi0602/latest/")
+                ;; x86/amd64/386 — strip suffix, lowercase
+                (t
+                 (let ((base (or (and (goasm--instruction-doc mnemonic)
+                                      mnemonic)
+                                 ;; Try stripping suffix to get base
+                                 (let ((b nil))
+                                   (cond
+                                    ((string-match "\\`\\(.*[A-Z]\\)\\(?:SS\\|SD\\)\\'" mnemonic)
+                                     (setq b (match-string 1 mnemonic)))
+                                    ((string-match "\\`\\(.*[A-Z]\\)[BWLQDS]\\'" mnemonic)
+                                     (setq b (match-string 1 mnemonic))))
+                                   b)
+                                 mnemonic)))
+                   (format "https://www.felixcloutier.com/x86/%s"
+                           (downcase base)))))))
+      (browse-url url))))
 
 (defun goasm-goto-source ()
   "Jump from the current assembly line to the corresponding source line.
@@ -187,6 +340,7 @@ switches to the source buffer at that line."
 (defvar goasm-output-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-l") #'goasm-goto-source)
+    (define-key map (kbd "C-c C-d") #'goasm-describe-instruction)
     map)
   "Keymap for `goasm-output-mode'.")
 
@@ -194,13 +348,15 @@ switches to the source buffer at that line."
   "Major mode for displaying Go assembly output.
 This is a read-only mode for viewing assembly generated by the Go compiler."
   (setq-local font-lock-defaults
-              '(goasm-output-font-lock-keywords)))
+              '(goasm-output-font-lock-keywords))
+  (setq-local eldoc-documentation-function #'goasm--eldoc-function))
 
-(defun goasm--display-buffer (content &optional source-buf project-root)
+(defun goasm--display-buffer (content &optional source-buf project-root arch)
   "Display CONTENT in the *goasm* buffer.
 Creates the buffer if needed, replaces existing content.
 SOURCE-BUF is the Go source buffer for reverse navigation.
-PROJECT-ROOT is the project root for resolving relative paths."
+PROJECT-ROOT is the project root for resolving relative paths.
+ARCH is the target architecture string (e.g. \"amd64\")."
   (let ((buf (get-buffer-create goasm-buffer-name)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -211,6 +367,8 @@ PROJECT-ROOT is the project root for resolving relative paths."
         (setq goasm--source-buffer source-buf))
       (when project-root
         (setq goasm--project-root project-root))
+      (when arch
+        (setq goasm--arch arch))
       (goto-char (point-min)))
     (display-buffer buf goasm--display-action)
     buf))
@@ -265,13 +423,14 @@ enclosing function in the *goasm* buffer."
         (user-error "No assembly found for function '%s' (may be inlined or dead-code eliminated)" func-name))
       (let* ((asm-text (cdr match))
              (project-root (goasm--find-project-root pkg-dir))
+             (arch (goasm--detect-arch))
              (display-text (if project-root
                                (goasm--relativize-paths asm-text project-root)
                              asm-text))
              (mapping (goasm--parse-line-mapping display-text)))
         (setq goasm--line-mapping mapping)
         (setq goasm--current-asm-function func-name)
-        (goasm--display-buffer display-text (current-buffer) project-root)))))
+        (goasm--display-buffer display-text (current-buffer) project-root arch)))))
 
 (defvar goasm--highlight-overlays nil
   "List of overlays used to highlight assembly lines for current source line.")
