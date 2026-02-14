@@ -405,4 +405,81 @@
       (when (get-buffer go-file) (kill-buffer (get-file-buffer go-file)))
       (when (get-buffer "*goasm*") (kill-buffer "*goasm*")))))
 
+(ert-deftest goasm-test-output-mode-keybinding ()
+  "C-c C-l is bound to goasm-goto-source in goasm-output-mode."
+  (with-temp-buffer
+    (goasm-output-mode)
+    (should (eq (key-binding (kbd "C-c C-l")) 'goasm-goto-source))))
+
+(ert-deftest goasm-test-goto-source-parses-reference ()
+  "goasm-goto-source jumps to the correct source line from assembly."
+  (when (get-buffer "*goasm*") (kill-buffer "*goasm*"))
+  (let ((go-file (goasm-test-fixture-path "main.go")))
+    (unwind-protect
+        (progn
+          (find-file go-file)
+          (goto-char (point-min))
+          (search-forward "return a + b")
+          (goasm-show)
+          ;; Switch to the *goasm* buffer and find a line with source ref
+          (with-current-buffer "*goasm*"
+            (goto-char (point-min))
+            ;; Find a line referencing main.go:4 (the return line)
+            (re-search-forward "main\\.go:4)")
+            (beginning-of-line)
+            (goasm-goto-source))
+          ;; Should have jumped to line 4 in the source buffer
+          (with-current-buffer (get-file-buffer go-file)
+            (should (= 4 (line-number-at-pos)))))
+      (when (get-buffer go-file) (kill-buffer (get-file-buffer go-file)))
+      (when (get-buffer "*goasm*") (kill-buffer "*goasm*")))))
+
+(ert-deftest goasm-test-goto-source-no-reference ()
+  "goasm-goto-source signals error when no source reference on current line."
+  (when (get-buffer "*goasm*") (kill-buffer "*goasm*"))
+  (let ((go-file (goasm-test-fixture-path "main.go")))
+    (unwind-protect
+        (progn
+          (find-file go-file)
+          (goto-char (point-min))
+          (search-forward "return a + b")
+          (goasm-show)
+          ;; Switch to the *goasm* buffer, go to the header line (no source ref)
+          (with-current-buffer "*goasm*"
+            (goto-char (point-min))
+            ;; First line is function header: "main.Add STEXT size=..."
+            (should-error (goasm-goto-source) :type 'user-error)))
+      (when (get-buffer go-file) (kill-buffer (get-file-buffer go-file)))
+      (when (get-buffer "*goasm*") (kill-buffer "*goasm*")))))
+
+(ert-deftest goasm-test-goto-source-round-trip ()
+  "Round-trip: source -> assembly -> source navigates correctly."
+  (when (get-buffer "*goasm*") (kill-buffer "*goasm*"))
+  (when (get-file-buffer (goasm-test-fixture-path "main.go"))
+    (kill-buffer (get-file-buffer (goasm-test-fixture-path "main.go"))))
+  (let ((go-file (goasm-test-fixture-path "main.go")))
+    (unwind-protect
+        (progn
+          (find-file go-file)
+          (goasm-minor-mode 1)
+          ;; Start at source line 4: "return a + b"
+          (goto-char (point-min))
+          (search-forward "return a + b")
+          (should (= 4 (line-number-at-pos)))
+          ;; Jump source -> assembly
+          (goasm-goto-line)
+          ;; Now in the assembly buffer, jump back to source
+          (with-current-buffer "*goasm*"
+            ;; Point should be on a line with :4) reference
+            (let ((current-line (buffer-substring
+                                 (line-beginning-position)
+                                 (line-end-position))))
+              (should (string-match-p ":4)" current-line)))
+            (goasm-goto-source))
+          ;; Should be back on line 4 of the source file
+          (with-current-buffer (get-file-buffer go-file)
+            (should (= 4 (line-number-at-pos)))))
+      (when (get-buffer go-file) (kill-buffer (get-file-buffer go-file)))
+      (when (get-buffer "*goasm*") (kill-buffer "*goasm*")))))
+
 ;;; goasm-test.el ends here

@@ -6,6 +6,7 @@ An Emacs minor mode for viewing Go compiler assembly output. Generates Plan 9 ps
 
 - **Per-function assembly** - Generates assembly output for the Go function at point using `go build -gcflags '-S'`
 - **Source-to-assembly navigation** - Jump the assembly view to the instructions corresponding to the current source line
+- **Assembly-to-source navigation** - Jump from an assembly line back to the corresponding source line
 - **Assembly highlighting** - Matching assembly lines are highlighted when navigating from source
 - **Syntax highlighting** - Assembly instructions, registers, hex addresses, and source references are font-locked in the output buffer
 - **Auto-recompilation** - Moving to a different function and navigating automatically re-generates assembly
@@ -24,13 +25,13 @@ Clone the repository and add it to your load path:
 
 ```elisp
 (add-to-list 'load-path "/path/to/goasm-mode")
-(require 'goasm)
+(require 'goasm-mode)
 ```
 
 ### use-package
 
 ```elisp
-(use-package goasm
+(use-package goasm-mode
   :load-path "/path/to/goasm-mode"
   :hook (go-mode . goasm-minor-mode))
 ```
@@ -51,17 +52,28 @@ Or add it to your `go-mode` hook:
 
 ### Key Bindings
 
+In a Go source buffer (`goasm-minor-mode`):
+
 | Key       | Command          | Description                                       |
 |-----------|------------------|---------------------------------------------------|
 | `C-c C-a` | `goasm-show`     | Generate assembly for the function at point        |
-| `C-c C-l` | `goasm-goto-line`| Scroll assembly buffer to the current source line  |
+| `C-c C-l` | `goasm-goto-line`| Show assembly for the current source line (compiles automatically if needed) |
+
+In the `*goasm*` assembly buffer:
+
+| Key       | Command              | Description                                       |
+|-----------|----------------------|---------------------------------------------------|
+| `C-c C-l` | `goasm-goto-source`  | Jump to the source line referenced by the current assembly line |
 
 ### Workflow
 
 1. Open a Go source file and enable `goasm-minor-mode`
 2. Place your cursor inside a function
-3. Press `C-c C-a` to generate and display the assembly in a `*goasm*` buffer
-4. Move to different lines in your source and press `C-c C-l` to see the corresponding assembly instructions highlighted
+3. Press `C-c C-l` to see the assembly for the current line — assembly is compiled automatically on first use and when you move to a different function
+4. Move to other source lines and press `C-c C-l` again to jump the assembly view and highlight the matching instructions
+5. In the `*goasm*` buffer, press `C-c C-l` on any assembly line to jump back to the corresponding source line
+
+You can also use `C-c C-a` to explicitly generate assembly without navigating to a specific line.
 
 ## Customization
 
