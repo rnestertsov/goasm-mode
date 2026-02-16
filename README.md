@@ -67,7 +67,7 @@ In the `*goasm*` assembly buffer:
 |-----|------------------------------|---------------------------------------------------|
 | `l` | `goasm-goto-source`          | Jump to the source line referenced by the current assembly line |
 | `d` | `goasm-describe-instruction` | Open documentation for the instruction on the current line |
-| `s` | `goasm-follow-jump`          | Follow the branch/jump instruction on the current line to its target |
+| `f` | `goasm-follow-jump`          | Follow the branch/jump instruction on the current line to its target |
 | `j` | `goasm-jump-to-address`      | Jump to an assembly line by byte offset (decimal or `0x` hex) |
 
 ### Workflow
@@ -78,7 +78,7 @@ In the `*goasm*` assembly buffer:
 4. Move to other source lines and press `C-c .` again to jump the assembly view and highlight the matching instructions
 5. In the `*goasm*` buffer, press `l` on any assembly line to jump back to the corresponding source line
 6. Hover on any instruction to see a short description via eldoc, or press `d` to open full documentation in your browser
-7. On a branch/jump instruction (e.g. `JMP 16`, `BGT 8`), press `s` to follow it to its target offset — use `C-u C-SPC` to jump back
+7. On a branch/jump instruction (e.g. `JMP 16`, `BGT 8`), press `f` to follow it to its target offset — use `C-u C-SPC` to jump back
 8. Press `j` to jump to any byte offset by typing it (decimal or `0x` hex)
 
 You can also use `C-c !` to explicitly generate assembly without navigating to a specific line.

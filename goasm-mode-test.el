@@ -808,10 +808,10 @@
     (should (eq (key-binding (kbd "j")) 'goasm-jump-to-address))))
 
 (ert-deftest goasm-test-output-mode-keybinding-follow ()
-  "s is bound to goasm-follow-jump in goasm-output-mode."
+  "f is bound to goasm-follow-jump in goasm-output-mode."
   (with-temp-buffer
     (goasm-output-mode)
-    (should (eq (key-binding (kbd "s")) 'goasm-follow-jump))))
+    (should (eq (key-binding (kbd "f")) 'goasm-follow-jump))))
 
 ;;; Jump-to-address end-to-end test
 

@@ -440,7 +440,7 @@ switches to the source buffer at that line."
     (define-key map (kbd "l") #'goasm-goto-source)
     (define-key map (kbd "d") #'goasm-describe-instruction)
     (define-key map (kbd "j") #'goasm-jump-to-address)
-    (define-key map (kbd "s") #'goasm-follow-jump)
+    (define-key map (kbd "f") #'goasm-follow-jump)
     map)
   "Keymap for `goasm-output-mode'.")
 
