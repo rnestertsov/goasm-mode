@@ -97,13 +97,17 @@ Only extracts STEXT entries (actual function definitions)."
     (nreverse result)))
 
 (defun goasm--current-function-name ()
-  "Return the name of the Go function enclosing point, or nil."
+  "Return the name of the Go function enclosing point, or nil.
+For methods, returns a receiver-qualified name matching the Go
+compiler's symbol format: \"(*Type).Method\" for pointer receivers,
+\"(Type).Method\" for value receivers, and \"Method\" for plain functions."
   (let ((original-pos (point)))
     (save-excursion
       (end-of-line)
       (when (re-search-backward
-             "^func\\s-+\\(?:(\\s-*[^)]+)\\s-+\\)?\\([A-Za-z_][A-Za-z0-9_]*\\)\\s-*(" nil t)
-        (let ((func-name (match-string-no-properties 1))
+             "^func\\s-+\\(?:(\\s-*\\([^)]+\\))\\s-+\\)?\\([A-Za-z_][A-Za-z0-9_]*\\)\\s-*(" nil t)
+        (let ((receiver (match-string-no-properties 1))
+              (func-name (match-string-no-properties 2))
               (func-start (match-beginning 0)))
           ;; Find the opening brace and its matching close
           (goto-char func-start)
@@ -112,7 +116,18 @@ Only extracts STEXT entries (actual function definitions)."
                             (ignore-errors (forward-sexp) t)))
             (let ((func-end (point)))
               (when (<= original-pos func-end)
-                func-name))))))))
+                (if receiver
+                    ;; Extract the type name from receiver like "c Calc" or "s *Store"
+                    (let* ((type-name
+                            (if (string-match "\\*?\\([A-Za-z_][A-Za-z0-9_]*\\)\\s-*$" receiver)
+                                (match-string 1 receiver)
+                              receiver))
+                           (is-pointer (string-match-p "\\*" receiver)))
+                      (format "(%s%s).%s"
+                              (if is-pointer "*" "")
+                              type-name
+                              func-name))
+                  func-name)))))))))
 
 (defun goasm--parse-line-mapping (asm-text)
   "Build a mapping from source line numbers to assembly buffer line numbers.

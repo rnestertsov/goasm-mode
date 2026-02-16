@@ -17,3 +17,27 @@ func main() {
 	y := Multiply(x, 2)
 	_ = y
 }
+
+type Calc struct{}
+
+func (c Calc) Add(a, b int) int {
+	return a + b
+}
+
+type Store struct{}
+
+func (s *Store) Get(key string) string {
+	return key
+}
+
+type Alpha struct{}
+
+func (a Alpha) Scan() int {
+	return 1
+}
+
+type Beta struct{}
+
+func (b *Beta) Scan() int {
+	return 2
+}

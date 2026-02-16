@@ -82,12 +82,46 @@
     (should (null (goasm--current-function-name)))))
 
 (ert-deftest goasm-test-current-function-name-method ()
-  "Detects method name with receiver."
-  (with-temp-buffer
-    (insert "package main\n\ntype Calc struct{}\n\nfunc (c Calc) Add(a, b int) int {\n\treturn a + b\n}\n")
-    (goto-char (point-min))
-    (search-forward "return")
-    (should (equal (goasm--current-function-name) "Add"))))
+  "Detects method name with value receiver, qualified as (Type).Method."
+  (let ((go-file (goasm-test-fixture-path "main.go")))
+    (unwind-protect
+        (progn
+          (find-file go-file)
+          (goto-char (point-min))
+          (search-forward "(c Calc) Add")
+          (search-forward "return")
+          (should (equal (goasm--current-function-name) "(Calc).Add")))
+      (when (get-file-buffer go-file) (kill-buffer (get-file-buffer go-file))))))
+
+(ert-deftest goasm-test-current-function-name-pointer-receiver ()
+  "Detects method name with pointer receiver, qualified as (*Type).Method."
+  (let ((go-file (goasm-test-fixture-path "main.go")))
+    (unwind-protect
+        (progn
+          (find-file go-file)
+          (goto-char (point-min))
+          (search-forward "(s *Store) Get")
+          (search-forward "return")
+          (should (equal (goasm--current-function-name) "(*Store).Get")))
+      (when (get-file-buffer go-file) (kill-buffer (get-file-buffer go-file))))))
+
+(ert-deftest goasm-test-current-function-name-disambiguates-methods ()
+  "Returns receiver-qualified name to disambiguate methods with same name."
+  (let ((go-file (goasm-test-fixture-path "main.go")))
+    (unwind-protect
+        (progn
+          (find-file go-file)
+          ;; Point inside Alpha.Scan
+          (goto-char (point-min))
+          (search-forward "(a Alpha) Scan")
+          (search-forward "return 1")
+          (should (equal (goasm--current-function-name) "(Alpha).Scan"))
+          ;; Point inside (*Beta).Scan
+          (goto-char (point-min))
+          (search-forward "(b *Beta) Scan")
+          (search-forward "return 2")
+          (should (equal (goasm--current-function-name) "(*Beta).Scan")))
+      (when (get-file-buffer go-file) (kill-buffer (get-file-buffer go-file))))))
 
 (ert-deftest goasm-test-current-function-name-multiple-funcs ()
   "Detects the correct function when multiple exist."
